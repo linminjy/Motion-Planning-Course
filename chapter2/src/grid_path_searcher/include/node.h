@@ -12,13 +12,19 @@ struct GridNode;
 typedef GridNode* GridNodePtr;
 
 struct GridNode
-{     
-    int id;        // 1--> open set, -1 --> closed set
+{
+    // 1--> open set, -1 --> closed set     
+    int id;        
+    // 实际地图坐标
     Eigen::Vector3d coord; 
-    Eigen::Vector3i dir;   // direction of expanding
+    // 扩展方向(JPS需要)
+    Eigen::Vector3i dir;
+    // 栅格地图坐标(索引)
     Eigen::Vector3i index;
 	
+    // g(n) 和 f(n)
     double gScore, fScore;
+    // 父节点
     GridNodePtr cameFrom;
     std::multimap<double, GridNodePtr>::iterator nodeMapIt;
 

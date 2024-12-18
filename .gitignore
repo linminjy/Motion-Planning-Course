@@ -83,3 +83,13 @@ codegen/
 
 # Octave session info
 octave-workspace
+
+**/.vscode/
+hw_1/
+hw_2/
+hw_3/
+hw_4/
+hw_5/
+hw_6/
+hw_7/
+hw_8/

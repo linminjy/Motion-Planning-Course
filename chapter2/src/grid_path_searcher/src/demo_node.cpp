@@ -25,18 +25,18 @@ namespace backward {
 backward::SignalHandling sh;
 }
 
-// simulation param from launch file
+// launch 文件的仿真参数
 double _resolution, _inv_resolution, _cloud_margin;
 double _x_size, _y_size, _z_size;    
 
-// useful global variables
+// 全局变量
 bool _has_map   = false;
 
 Vector3d _start_pt;
 Vector3d _map_lower, _map_upper;
 int _max_x_id, _max_y_id, _max_z_id;
 
-// ros related
+// ros 通信的订阅者、发布者
 ros::Subscriber _map_sub, _pts_sub;
 ros::Publisher  _grid_path_vis_pub, _visited_nodes_vis_pub, _grid_map_vis_pub;
 
@@ -66,22 +66,26 @@ void rcvWaypointsCallback(const nav_msgs::Path & wp)
 
 void rcvPointCloudCallBack(const sensor_msgs::PointCloud2 & pointcloud_map)
 {   
+    // 有地图点云信息，则直接返回
     if(_has_map ) return;
 
     pcl::PointCloud<pcl::PointXYZ> cloud;
     pcl::PointCloud<pcl::PointXYZ> cloud_vis;
     sensor_msgs::PointCloud2 map_vis;
 
+    // 将 ROS 点云消息转换为 PCL 点云数据结构
     pcl::fromROSMsg(pointcloud_map, cloud);
     
+    // 判断点云是否为空
     if( (int)cloud.points.size() == 0 ) return;
 
     pcl::PointXYZ pt;
     for (int idx = 0; idx < (int)cloud.points.size(); idx++)
-    {    
+    {
+        //     
         pt = cloud.points[idx];        
 
-        // set obstalces into grid map for path planning
+        // 将障碍物信息设置到栅格地图中，为路径规划做准备
         _astar_path_finder->setObs(pt.x, pt.y, pt.z);
         _jps_path_finder->setObs(pt.x, pt.y, pt.z);
 
@@ -149,36 +153,51 @@ int main(int argc, char** argv)
     ros::init(argc, argv, "demo_node");
     ros::NodeHandle nh("~");
 
+    // 订阅地图点云信息的回调函数
     _map_sub  = nh.subscribe( "map",       1, rcvPointCloudCallBack );
+    // 订阅终点坐标信息的回调函数
     _pts_sub  = nh.subscribe( "waypoints", 1, rcvWaypointsCallback );
 
+    // 地图可视化
     _grid_map_vis_pub             = nh.advertise<sensor_msgs::PointCloud2>("grid_map_vis", 1);
+    // 路径规划可视化
     _grid_path_vis_pub            = nh.advertise<visualization_msgs::Marker>("grid_path_vis", 1);
+    // 扩展节点可视化
     _visited_nodes_vis_pub        = nh.advertise<visualization_msgs::Marker>("visited_nodes_vis",1);
 
+    // 点云间隙
     nh.param("map/cloud_margin",  _cloud_margin, 0.0);
+    // 栅格地图分辨率，即栅格地图中一个栅格代表的实际长度
     nh.param("map/resolution",    _resolution,   0.2);
     
+    // 实际地图大小(m)
     nh.param("map/x_size",        _x_size, 50.0);
     nh.param("map/y_size",        _y_size, 50.0);
     nh.param("map/z_size",        _z_size, 5.0 );
     
+    // 起点坐标
     nh.param("planning/start_x",  _start_pt(0),  0.0);
     nh.param("planning/start_y",  _start_pt(1),  0.0);
     nh.param("planning/start_z",  _start_pt(2),  0.0);
 
+    // 实际地图坐标的下界、上界
     _map_lower << - _x_size/2.0, - _y_size/2.0,     0.0;
     _map_upper << + _x_size/2.0, + _y_size/2.0, _z_size;
     
+    // 地图分辨率的倒数，
     _inv_resolution = 1.0 / _resolution;
     
+    // 栅格地图坐标最大值
+    // 实际地图上 x,y 坐标有正负，但栅格地图中坐标是从 0 开始到最大索引值
     _max_x_id = (int)(_x_size * _inv_resolution);
     _max_y_id = (int)(_y_size * _inv_resolution);
     _max_z_id = (int)(_z_size * _inv_resolution);
 
+    // 定义了结构体 AstarPathFinder 变量_astar_path_finder，该结构体存储、实现了 Astar 路径规划所需的所有信息和功能
     _astar_path_finder  = new AstarPathFinder();
     _astar_path_finder  -> initGridMap(_resolution, _map_lower, _map_upper, _max_x_id, _max_y_id, _max_z_id);
 
+    //定义了结构体 JPSPathFinder 变量_jps_path_finder，该结构体存储、实现了 JPS 路径规划所需的所有信息和功能
     _jps_path_finder    = new JPSPathFinder();
     _jps_path_finder    -> initGridMap(_resolution, _map_lower, _map_upper, _max_x_id, _max_y_id, _max_z_id);
     
