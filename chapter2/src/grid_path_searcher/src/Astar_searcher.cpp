@@ -236,13 +236,12 @@ inline double AstarPathFinder::getDiagHeu(GridNodePtr node1, GridNodePtr node2)
     dy -= min_id;
     dz -= min_id;
 
-    if dx == 0:
+    if (dx == 0)
         return sqrt(3) * min_id + dy + dz + (sqrt(2) - 2) * min(dy, dz);
-    if dy == 0:
+    if (dy == 0)
         return sqrt(3) * min_id + dx + dz + (sqrt(2) - 2) * min(dx, dz);
-    if dz == 0:
+    if (dz == 0)
         return sqrt(3) * min_id + dx + dy + (sqrt(2) - 2) * min(dx, dy);
-    return h;
 }
 
 // 曼哈顿距离启发函数
@@ -325,7 +324,7 @@ void AstarPathFinder::AstarGraphSearch(Vector3d start_pt, Vector3d end_pt)
         }
 
         // openSet 删除当前节点
-        open_set.erase(it);
+        openSet.erase(it);
         // 将当前节点标记为已访问
         currentPtr->id = -1;
         
