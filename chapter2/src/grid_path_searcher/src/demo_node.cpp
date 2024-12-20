@@ -162,7 +162,7 @@ int main(int argc, char** argv)
     _grid_map_vis_pub             = nh.advertise<sensor_msgs::PointCloud2>("grid_map_vis", 1);
     // 路径规划可视化
     _grid_path_vis_pub            = nh.advertise<visualization_msgs::Marker>("grid_path_vis", 1);
-    // 扩展节点可视化
+    // 所有访问节点可视化
     _visited_nodes_vis_pub        = nh.advertise<visualization_msgs::Marker>("visited_nodes_vis",1);
 
     // 点云间隙

@@ -13,7 +13,8 @@ typedef GridNode* GridNodePtr;
 
 struct GridNode
 {
-    // 1--> open set, -1 --> closed set     
+    // 1--> open set(待访问), -1 --> closed set(已访问)
+    // 0--> 一般节点(未访问)，可能是占据节点或自由节点
     int id;        
     // 实际地图坐标
     Eigen::Vector3d coord; 
@@ -26,6 +27,7 @@ struct GridNode
     double gScore, fScore;
     // 父节点
     GridNodePtr cameFrom;
+    // 保存 openSet 中的指向该节点的迭代器(不能使用！！！)，但是插入、删除 openSet 中的节点会导致该迭代器失效
     std::multimap<double, GridNodePtr>::iterator nodeMapIt;
 
     GridNode(Eigen::Vector3i _index, Eigen::Vector3d _coord){  

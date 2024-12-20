@@ -177,6 +177,23 @@ inline void AstarPathFinder::AstarGetSucc(GridNodePtr currentPtr, vector<GridNod
     *
     *
     */
+
+   Vector3i currentIndex = currentPtr->index;
+    for (int dx = -1; dx < 2; ++dx)
+        for (int dy = -1; dy < 2; ++dy)
+            for (int dz = -1; dz < 2; ++dz)
+            {
+                if (dx == 0 && dy == 0 && dz == 0)
+                    continue;
+                Vector3i neighborIndex = currentIndex + Vector3i(dx, dy, dz);
+                // 相邻节点需要保证在栅格地图中
+                if (neighborIndex(0) < 0 || neighborIndex(0) >= GLX_SIZE || 
+                    neighborIndex(1) < 0 || neighborIndex(1) >= GLY_SIZE || 
+                    neighborIndex(2) < 0 || neighborIndex(2) >= GLZ_SIZE)
+                    continue;
+                neighborPtrSets.push_back(GridNodeMap[neighborIndex(0)][neighborIndex(1)][neighborIndex(2)]);
+                edgeCostSets.push_back(sqrt(dx * dx + dy * dy + dz * dz));
+            }
 }
 
 // 获取启发函数值(曼哈顿距离/欧式距离/对角线距离/0(Dijkstra))
@@ -194,8 +211,47 @@ double AstarPathFinder::getHeu(GridNodePtr node1, GridNodePtr node2)
     *
     *
     */
+   double tie_breaker = 1 + 1 / 1000;
+   return tie_breaker * getDiagHeu(node1, node2);   
+}
 
-    return 0;
+// 欧式距离启发函数
+inline double AstarPathFinder::getEuclHeu(GridNodePtr node1, GridNodePtr node2)
+{
+    int dx = abs(node1->index(0) - node2->index(0));
+    int dy = abs(node1->index(1) - node2->index(1));
+    int dz = abs(node1->index(2) - node2->index(2));
+    return sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+// 对角线距离启发函数
+inline double AstarPathFinder::getDiagHeu(GridNodePtr node1, GridNodePtr node2)
+{
+    int dx = abs(node1->index(0) - node2->index(0));
+    int dy = abs(node1->index(1) - node2->index(1));
+    int dz = abs(node1->index(2) - node2->index(2));
+
+    int min_id = min(min(dx, dy), dz);
+    dx -= min_id;
+    dy -= min_id;
+    dz -= min_id;
+
+    if dx == 0:
+        return sqrt(3) * min_id + dy + dz + (sqrt(2) - 2) * min(dy, dz);
+    if dy == 0:
+        return sqrt(3) * min_id + dx + dz + (sqrt(2) - 2) * min(dx, dz);
+    if dz == 0:
+        return sqrt(3) * min_id + dx + dy + (sqrt(2) - 2) * min(dx, dy);
+    return h;
+}
+
+// 曼哈顿距离启发函数
+inline double AstarPathFinder::getManhHeu(GridNodePtr node1, GridNodePtr node2)
+{
+    int dx = abs(node1->index(0) - node2->index(0));
+    int dy = abs(node1->index(1) - node2->index(1));
+    int dz = abs(node1->index(2) - node2->index(2));
+    return dx + dy + dz;
 }
 
 // A* 路径规划算法
@@ -203,32 +259,35 @@ void AstarPathFinder::AstarGraphSearch(Vector3d start_pt, Vector3d end_pt)
 {   
     ros::Time time_1 = ros::Time::now();    
 
-    //index of start_point and end_point
+    // 获取起点和终点的栅格坐标
     Vector3i start_idx = coord2gridIndex(start_pt);
     Vector3i end_idx   = coord2gridIndex(end_pt);
+    // 目标的栅格坐标
     goalIdx = end_idx;
 
-    //position of start_point and end_point
+    // 起点和终点的栅格中心点的实际坐标
     start_pt = gridIndex2coord(start_idx);
     end_pt   = gridIndex2coord(end_idx);
 
-    //Initialize the pointers of struct GridNode which represent start node and goal node
+    // 初始化起始节点和终止节点
     GridNodePtr startPtr = new GridNode(start_idx, start_pt);
     GridNodePtr endPtr   = new GridNode(end_idx,   end_pt);
 
-    //openSet is the open_list implemented through multimap in STL library
+    // openSet 是通过 STL 库中的 multimap 实现的 open list
     openSet.clear();
-    // currentPtr represents the node with lowest f(n) in the open_list
+    // currentPtr 指向 open_list 中 f(n) 最小的节点
     GridNodePtr currentPtr  = NULL;
+    // neighborPtr 指向当前节点的相邻节点
     GridNodePtr neighborPtr = NULL;
 
-    //put start node in open set
     startPtr -> gScore = 0;
+    // f = h + g = h + 0
     startPtr -> fScore = getHeu(startPtr,endPtr);   
     //STEP 1: finish the AstarPathFinder::getHeu , which is the heuristic function
+    // 将起始节点标记为待访问
     startPtr -> id = 1; 
-    startPtr -> coord = start_pt;
-    openSet.insert( make_pair(startPtr -> fScore, startPtr) );
+    // 将起始节点加入 openSet
+    openSet.insert(make_pair(startPtr -> fScore, startPtr));
     /*
     *
     STEP 2 :  some else preparatory works which should be done before while loop
@@ -253,14 +312,24 @@ void AstarPathFinder::AstarGraphSearch(Vector3d start_pt, Vector3d end_pt)
         *
         */
 
-        // if the current node is the goal 
+       // multimap 使用默认比较函数是从小到大排序，所以取第一个即可得到最小 fScore 的节点
+        auto it = openSet.begin();
+        currentPtr = it->second;
+        // 如果当前节点是目标节点，则结束搜索
         if( currentPtr->index == goalIdx ){
             ros::Time time_2 = ros::Time::now();
+            // 目标节点 = 当前节点
             terminatePtr = currentPtr;
             ROS_WARN("[A*]{sucess}  Time in A*  is %f ms, path cost if %f m", (time_2 - time_1).toSec() * 1000.0, currentPtr->gScore * resolution );            
             return;
         }
-        //get the succetion
+
+        // openSet 删除当前节点
+        open_set.erase(it);
+        // 将当前节点标记为已访问
+        currentPtr->id = -1;
+        
+        // 获得当前节点的所有相邻节点及到相邻节点的代价函数值
         AstarGetSucc(currentPtr, neighborPtrSets, edgeCostSets);  //STEP 4: finish AstarPathFinder::AstarGetSucc yourself     
 
         /*
@@ -278,11 +347,18 @@ void AstarPathFinder::AstarGraphSearch(Vector3d start_pt, Vector3d end_pt)
             please write your code below
             
             IMPORTANT NOTE!!!
-            neighborPtrSets[i]->id = -1 : unexpanded
-            neighborPtrSets[i]->id = 1 : expanded, equal to this node is in close set
+            neighborPtrSets[i]->id = 1 : unexpanded, equal to this node is in open list
+            neighborPtrSets[i]->id = -1 : expanded, equal to this node is in close list
             *        
             */
-            if(neighborPtr -> id != 1){ //discover a new node, which is not in the closed set and open set
+            neighborPtr = neighborPtrSets[i];
+            // 占据节点或已访问节点则跳过
+            if(isOccupied(neighborPtr->index) || neighborPtr->id == -1)
+                continue;
+
+            // 从起始节点经过当前节点到达相邻节点的代价
+            double neighbor_gScore = currentPtr->gScore + edgeCostSets[i];
+            if(neighborPtr -> id == 0){ //discover a new node, which is not in the closed set and open set
                 /*
                 *
                 *
@@ -290,9 +366,15 @@ void AstarPathFinder::AstarGraphSearch(Vector3d start_pt, Vector3d end_pt)
                 please write your code below
                 *        
                 */
+                
+                neighborPtr->id = 1;
+                neighborPtr->cameFrom = currentPtr;
+                neighborPtr->gScore = neighbor_gScore;
+                neighborPtr->fScore = neighbor_gScore + getHeu(neighborPtr, endPtr);
+                openSet.insert(make_pair(neighborPtr->fScore, neighborPtr));
                 continue;
             }
-            else if(0){ //this node is in open set and need to judge if it needs to update, the "0" should be deleted when you are coding
+            else if(neighborPtr->gScore > neighbor_gScore){ //this node is in open set and need to judge if it needs to update, the "0" should be deleted when you are coding
                 /*
                 *
                 *
@@ -300,14 +382,21 @@ void AstarPathFinder::AstarGraphSearch(Vector3d start_pt, Vector3d end_pt)
                 please write your code below
                 *        
                 */
-                continue;
-            }
-            else{//this node is in closed set
-                /*
-                *
-                please write your code below
-                *        
-                */
+                // 以空间换时间，直接生成具有更小 fScore 的节点加入 openSet
+                // auto range = openSet.equal_range(neighborPtr->fScore);
+                // for(auto it = range.first; it != range.second; ++it)
+                // {
+                //     Vector3i index = it->second->index;
+                //     if(index == neighborPtr->index)
+                //     {
+                //         openSet.erase(it);
+                //         break;
+                //     }
+                // }
+                neighborPtr->cameFrom = currentPtr;
+                neighborPtr->gScore = neighbor_gScore;
+                neighborPtr->fScore = neighbor_gScore + getHeu(neighborPtr, endPtr);                
+                openSet.insert(make_pair(neighborPtr->fScore, neighborPtr));
                 continue;
             }
         }      
@@ -330,7 +419,8 @@ vector<Vector3d> AstarPathFinder::getPath()
     please write your code below
     *      
     */
-
+    for (auto ptr = terminatePtr; ptr != NULL; ptr = ptr->cameFrom)
+        gridPath.push_back(ptr);
     for (auto ptr: gridPath)
         path.push_back(ptr->coord);
         

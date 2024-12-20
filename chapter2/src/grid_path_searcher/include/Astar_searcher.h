@@ -27,6 +27,10 @@ class AstarPathFinder
 		std::multimap<double, GridNodePtr> openSet;
 
 		double getHeu(GridNodePtr node1, GridNodePtr node2);
+		double getEuclHeu(GridNodePtr node1, GridNodePtr node2);
+		double getDiagHeu(GridNodePtr node1, GridNodePtr node2);
+		double getManhHeu(GridNodePtr node1, GridNodePtr node2);
+
 		void AstarGetSucc(GridNodePtr currentPtr, std::vector<GridNodePtr> & neighborPtrSets, std::vector<double> & edgeCostSets);		
 
     	bool isOccupied(const int & idx_x, const int & idx_y, const int & idx_z) const;
