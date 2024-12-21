@@ -13,8 +13,8 @@ typedef GridNode* GridNodePtr;
 
 struct GridNode
 {
-    // 1--> open set(待访问), -1 --> closed set(已访问)
-    // 0--> 一般节点(未访问)，可能是占据节点或自由节点
+    // 1--> open set(待扩展), -1 --> closed set(已扩展)
+    // 0--> 一般节点(未扩展)，可能是占据节点或自由节点
     int id;        
     // 实际地图坐标
     Eigen::Vector3d coord; 

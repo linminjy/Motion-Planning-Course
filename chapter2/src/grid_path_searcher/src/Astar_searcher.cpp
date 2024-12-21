@@ -54,7 +54,7 @@ void AstarPathFinder::initGridMap(double _resolution, Vector3d global_xyz_l, Vec
     }
 }
 
-// 将节点设置成未访问状态
+// 将节点设置成未扩展状态
 void AstarPathFinder::resetGrid(GridNodePtr ptr)
 {
     ptr->id = 0;
@@ -63,7 +63,7 @@ void AstarPathFinder::resetGrid(GridNodePtr ptr)
     ptr->fScore = inf;
 }
 
-// 将栅格地图所有节点设置成未访问状态
+// 将栅格地图所有节点设置成未扩展状态
 void AstarPathFinder::resetUsedGrids()
 {   
     for(int i=0; i < GLX_SIZE ; i++)
@@ -92,7 +92,7 @@ void AstarPathFinder::setObs(const double coord_x, const double coord_y, const d
     data[idx_x * GLYZ_SIZE + idx_y * GLZ_SIZE + idx_z] = 1;
 }
 
-// 获取所有访问过的节点
+// 获取所有扩展过的节点
 vector<Vector3d> AstarPathFinder::getVisitedNodes()
 {   
     vector<Vector3d> visited_nodes;
@@ -165,7 +165,7 @@ inline bool AstarPathFinder::isFree(const int & idx_x, const int & idx_y, const 
            (data[idx_x * GLYZ_SIZE + idx_y * GLZ_SIZE + idx_z] < 1));
 }
 
-// 返回当前节点的所有相邻节点，以及到相邻节点的代价函数值
+// 返回当前节点的所有未扩展的相邻节点，以及到相邻节点的代价函数值
 inline void AstarPathFinder::AstarGetSucc(GridNodePtr currentPtr, vector<GridNodePtr> & neighborPtrSets, vector<double> & edgeCostSets)
 {   
     neighborPtrSets.clear();
@@ -186,13 +186,12 @@ inline void AstarPathFinder::AstarGetSucc(GridNodePtr currentPtr, vector<GridNod
                 if (dx == 0 && dy == 0 && dz == 0)
                     continue;
                 Vector3i neighborIndex = currentIndex + Vector3i(dx, dy, dz);
-                // 相邻节点需要保证在栅格地图中
-                if (neighborIndex(0) < 0 || neighborIndex(0) >= GLX_SIZE || 
-                    neighborIndex(1) < 0 || neighborIndex(1) >= GLY_SIZE || 
-                    neighborIndex(2) < 0 || neighborIndex(2) >= GLZ_SIZE)
-                    continue;
-                neighborPtrSets.push_back(GridNodeMap[neighborIndex(0)][neighborIndex(1)][neighborIndex(2)]);
-                edgeCostSets.push_back(sqrt(dx * dx + dy * dy + dz * dz));
+                // 相邻节点是自由节点且不在 close list 里
+                if (isFree(neighborIndex) && GridNodeMap[neighborIndex(0)][neighborIndex(1)][neighborIndex(2)]->id != -1)
+                {
+                    neighborPtrSets.push_back(GridNodeMap[neighborIndex(0)][neighborIndex(1)][neighborIndex(2)]);
+                    edgeCostSets.push_back(sqrt(dx * dx + dy * dy + dz * dz));
+                }
             }
 }
 
@@ -283,7 +282,7 @@ void AstarPathFinder::AstarGraphSearch(Vector3d start_pt, Vector3d end_pt)
     // f = h + g = h + 0
     startPtr -> fScore = getHeu(startPtr,endPtr);   
     //STEP 1: finish the AstarPathFinder::getHeu , which is the heuristic function
-    // 将起始节点标记为待访问
+    // 将起始节点标记为待扩展
     startPtr -> id = 1; 
     // 将起始节点加入 openSet
     openSet.insert(make_pair(startPtr -> fScore, startPtr));
@@ -325,7 +324,7 @@ void AstarPathFinder::AstarGraphSearch(Vector3d start_pt, Vector3d end_pt)
 
         // openSet 删除当前节点
         openSet.erase(it);
-        // 将当前节点标记为已访问
+        // 将当前节点标记为已扩展
         currentPtr->id = -1;
         
         // 获得当前节点的所有相邻节点及到相邻节点的代价函数值
@@ -351,9 +350,6 @@ void AstarPathFinder::AstarGraphSearch(Vector3d start_pt, Vector3d end_pt)
             *        
             */
             neighborPtr = neighborPtrSets[i];
-            // 占据节点或已访问节点则跳过
-            if(isOccupied(neighborPtr->index) || neighborPtr->id == -1)
-                continue;
 
             // 从起始节点经过当前节点到达相邻节点的代价
             double neighbor_gScore = currentPtr->gScore + edgeCostSets[i];

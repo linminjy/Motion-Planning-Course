@@ -52,4 +52,8 @@
       <param name="waypoint_type" value="manual-lonely-waypoint"/>    
   </node>
 
+  <node pkg="rviz" type="rviz" name="rviz" output="screen">
+    <param name="config" value="$(find grid_path_searcher)/rviz/demo.rviz"/>
+  </node>
+
 </launch>
