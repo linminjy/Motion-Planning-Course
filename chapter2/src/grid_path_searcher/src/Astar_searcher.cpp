@@ -414,8 +414,10 @@ vector<Vector3d> AstarPathFinder::getPath()
     please write your code below
     *      
     */
+    // 回溯节点
     for (auto ptr = terminatePtr; ptr != NULL; ptr = ptr->cameFrom)
         gridPath.push_back(ptr);
+    // 节点坐标
     for (auto ptr: gridPath)
         path.push_back(ptr->coord);
         

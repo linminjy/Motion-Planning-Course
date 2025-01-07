@@ -50,20 +50,25 @@ void visGridPath( vector<Vector3d> nodes, bool is_use_jps );
 void visVisitedNode( vector<Vector3d> nodes );
 void pathFinding(const Vector3d start_pt, const Vector3d target_pt);
 
+// 订阅终点坐标信息的回调函数
 void rcvWaypointsCallback(const nav_msgs::Path & wp)
-{     
+{
+    // 终点在地面下或没有地图则无法进行路径规划     
     if( wp.poses[0].pose.position.z < 0.0 || _has_map == false )
         return;
 
     Vector3d target_pt;
+    // 获取交互界面给出的终点坐标
     target_pt << wp.poses[0].pose.position.x,
                  wp.poses[0].pose.position.y,
                  wp.poses[0].pose.position.z;
 
     ROS_INFO("[node] receive the planning target");
+    // 输入起点、终点，调用 pathFinding() 进行路径规划
     pathFinding(_start_pt, target_pt); 
 }
 
+// 订阅地图点云信息的回调函数
 void rcvPointCloudCallBack(const sensor_msgs::PointCloud2 & pointcloud_map)
 {   
     // 有地图点云信息，则直接返回
@@ -80,9 +85,9 @@ void rcvPointCloudCallBack(const sensor_msgs::PointCloud2 & pointcloud_map)
     if( (int)cloud.points.size() == 0 ) return;
 
     pcl::PointXYZ pt;
+    // 遍历点云数据结构
     for (int idx = 0; idx < (int)cloud.points.size(); idx++)
     {
-        //     
         pt = cloud.points[idx];        
 
         // 将障碍物信息设置到栅格地图中，为路径规划做准备
@@ -90,6 +95,7 @@ void rcvPointCloudCallBack(const sensor_msgs::PointCloud2 & pointcloud_map)
         _jps_path_finder->setObs(pt.x, pt.y, pt.z);
 
         // for visualize only
+        // 将点云实际坐标转换成对应栅格中心点的实际坐标
         Vector3d cor_round = _astar_path_finder->coordRounding(Vector3d(pt.x, pt.y, pt.z));
         pt.x = cor_round(0);
         pt.y = cor_round(1);
@@ -97,37 +103,44 @@ void rcvPointCloudCallBack(const sensor_msgs::PointCloud2 & pointcloud_map)
         cloud_vis.points.push_back(pt);
     }
 
+    // 在无组织的点云数据集中指定点云的总点数
     cloud_vis.width    = cloud_vis.points.size();
+    // 在无组织的点云数据集中设置为1
     cloud_vis.height   = 1;
+    // 判断点云中的点是否包含 Inf/NaN 这种值(包含为 false)
     cloud_vis.is_dense = true;
 
+    // 将 PCL 点云数据结构转换为 ROS 点云消息
     pcl::toROSMsg(cloud_vis, map_vis);
 
     map_vis.header.frame_id = "/world";
+    // 地图点云可视化
     _grid_map_vis_pub.publish(map_vis);
 
     _has_map = true;
 }
 
+// 调用路径规划算法
 void pathFinding(const Vector3d start_pt, const Vector3d target_pt)
 {
-    //Call A* to search for a path
+    // 使用 A* 进行路径规划
     _astar_path_finder->AstarGraphSearch(start_pt, target_pt);
 
-    //Retrieve the path
+    // 获取规划的路径
     auto grid_path     = _astar_path_finder->getPath();
     auto visited_nodes = _astar_path_finder->getVisitedNodes();
 
-    //Visualize the result
+    // 可视化结果
     visGridPath (grid_path, false);
     visVisitedNode(visited_nodes);
 
-    //Reset map for next call
+    // 重置地图，为下一次调用做准备
     _astar_path_finder->resetUsedGrids();
 
     //_use_jps = 0 -> Do not use JPS
     //_use_jps = 1 -> Use JPS
     //you just need to change the #define value of _use_jps
+    // 进行 JPS 路径规划编写时，将 _use_jps 置为 1
 #define _use_jps 0
 #if _use_jps
     {
@@ -215,6 +228,7 @@ int main(int argc, char** argv)
     return 0;
 }
 
+// 可视化路径
 void visGridPath( vector<Vector3d> nodes, bool is_use_jps )
 {   
     visualization_msgs::Marker node_vis; 
@@ -226,15 +240,18 @@ void visGridPath( vector<Vector3d> nodes, bool is_use_jps )
     else
         node_vis.ns = "demo_node/astar_path";
 
+    // marker 类型
     node_vis.type = visualization_msgs::Marker::CUBE_LIST;
     node_vis.action = visualization_msgs::Marker::ADD;
     node_vis.id = 0;
 
+    // marker 朝向
     node_vis.pose.orientation.x = 0.0;
     node_vis.pose.orientation.y = 0.0;
     node_vis.pose.orientation.z = 0.0;
     node_vis.pose.orientation.w = 1.0;
 
+    // marker 颜色
     if(is_use_jps){
         node_vis.color.a = 1.0;
         node_vis.color.r = 1.0;
@@ -248,7 +265,7 @@ void visGridPath( vector<Vector3d> nodes, bool is_use_jps )
         node_vis.color.b = 0.0;
     }
 
-
+    // marker 大小
     node_vis.scale.x = _resolution;
     node_vis.scale.y = _resolution;
     node_vis.scale.z = _resolution;
@@ -257,16 +274,17 @@ void visGridPath( vector<Vector3d> nodes, bool is_use_jps )
     for(int i = 0; i < int(nodes.size()); i++)
     {
         Vector3d coord = nodes[i];
+        // marker 点的坐标，geometry_msgs::Point 类型
         pt.x = coord(0);
         pt.y = coord(1);
         pt.z = coord(2);
-
         node_vis.points.push_back(pt);
     }
 
     _grid_path_vis_pub.publish(node_vis);
 }
 
+// 可视化扩展过的节点
 void visVisitedNode( vector<Vector3d> nodes )
 {   
     visualization_msgs::Marker node_vis; 

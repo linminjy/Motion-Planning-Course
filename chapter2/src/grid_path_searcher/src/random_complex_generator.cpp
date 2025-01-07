@@ -36,10 +36,14 @@ vector<int>     pointIdxSearch;
 vector<float>   pointSquaredDistance;      
 
 void RandomMapGenerate()
-{  
+{
+   // 随机数生成：1. 生成随机数种子 2. 随机数生成器 3. 随机数分布  
+   // 真随机数生成器，为其它随机数生成器提供种子
    random_device rd;
+   // 默认的伪随机数生成器，快速生成随机数
    default_random_engine eng(rd());
    
+   // 从均匀分布中生成随机的浮点数
    uniform_real_distribution<double> rand_x = uniform_real_distribution<double>(_x_l, _x_h );
    uniform_real_distribution<double> rand_y = uniform_real_distribution<double>(_y_l, _y_h );
    uniform_real_distribution<double> rand_w = uniform_real_distribution<double>(_w_l, _w_h);
@@ -58,16 +62,19 @@ void RandomMapGenerate()
    pcl::PointXYZ pt_random;
 
    // firstly, we put some circles
+   // 首先生成圆形障碍物
    for(int i = 0; i < _cir_num; i ++)
    {
       double x0, y0, z0, R;
       std::vector<Vector3d> circle_set;
 
+      // 圆的圆心坐标、半径
       x0   = rand_x_circle(eng);
       y0   = rand_y_circle(eng);
       z0   = rand_h(eng) / 2.0;  
       R    = rand_r_circle(eng);
 
+      // 不能离起始点太近
       if(sqrt( pow(x0-_init_x, 2) + pow(y0-_init_y, 2) ) < 2.0 ) 
          continue;
 
@@ -77,6 +84,7 @@ void RandomMapGenerate()
 
       double x, y, z;
       Vector3d pt3, pt3_rot;
+      // 圆形坐标系下，椭圆上的
       for(double theta = -M_PI; theta < M_PI; theta += 0.025)
       {  
          x = a * cos(theta) * R;
@@ -181,6 +189,7 @@ void RandomMapGenerate()
    globalMap_pcd.header.frame_id = "world";
 }
 
+// 发布传感器感知的点云数据
 void pubSensedPoints()
 {     
    if( !_has_map ) return;
@@ -195,34 +204,45 @@ int main (int argc, char** argv)
 
    _all_map_pub   = n.advertise<sensor_msgs::PointCloud2>("global_map", 1);                      
 
+   // 地图起点
    n.param("init_state_x", _init_x,       0.0);
    n.param("init_state_y", _init_y,       0.0);
 
+   // 地图大小
    n.param("map/x_size",  _x_size, 50.0);
    n.param("map/y_size",  _y_size, 50.0);
    n.param("map/z_size",  _z_size, 5.0 );
 
+   // 地图柱形障碍物数量
    n.param("map/obs_num",    _obs_num,  30);
+   // 地图圆形障碍物数量
    n.param("map/circle_num", _cir_num,  30);
+   // 地图分辨率
    n.param("map/resolution", _resolution, 0.2);
 
+   // 柱形障碍物宽度、高度范围
    n.param("ObstacleShape/lower_rad", _w_l,   0.3);
    n.param("ObstacleShape/upper_rad", _w_h,   0.8);
    n.param("ObstacleShape/lower_hei", _h_l,   3.0);
    n.param("ObstacleShape/upper_hei", _h_h,   7.0);
 
+   // 圆形障碍物半径范围
    n.param("CircleShape/lower_circle_rad", _w_c_l, 0.3);
    n.param("CircleShape/upper_circle_rad", _w_c_h, 0.8);
 
+   // 传感器感知数据发布频率
    n.param("sensing/rate", _sense_rate, 1.0);
 
+   // 地图 x 轴范围
    _x_l = - _x_size / 2.0;
    _x_h = + _x_size / 2.0;
 
+   // 地图 y 轴范围
    _y_l = - _y_size / 2.0;
    _y_h = + _y_size / 2.0;
 
    RandomMapGenerate();
+   // 模拟传感器感知地图障碍物，按照传感器感知数据发布频率发布地图
    ros::Rate loop_rate(_sense_rate);
    while (ros::ok())
    {
